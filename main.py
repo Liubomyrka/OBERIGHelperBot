@@ -1,59 +1,54 @@
 import logging
 import nest_asyncio
+import asyncio
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import datetime
-from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
 
-# Дозволяємо повторний запуск циклу подій у Colab
+# Дозволяємо повторний запуск циклу подій у середовищах на зразок Colab
 nest_asyncio.apply()
 
 # Логування
 logging.basicConfig(level=logging.INFO)
 
 # Токен
-TOKEN = "ВАШ_ТОКЕН"
+TOKEN = "7730295760:AAGuRYKPmnwhJospsWS4dbHW0yy3M6JrZRk"
 
 # Дані вашого календаря
-CALENDAR_ID = "ВАШ_ID_КАЛЕНДАРЯ"
-
-# Авторизація через файл облікових даних Google Calendar
-def get_google_calendar_service():
-    SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
-    creds = Credentials.from_service_account_file("oberig-credentials.json", scopes=SCOPES)
-    service = build('calendar', 'v3', credentials=creds)
-    return service
+CALENDAR_ID = "3d1200d4f604504fd92ebc97ccf35ab40d52e1b014a79f9a0b4c61c0ec8dda0c@group.calendar.google.com"
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! Ось доступні команди:\n/help - Допомога\n/rozklad - Розклад подій")
+    logging.info(f"Отримано команду /start від {update.effective_user.username}")
+    await update.message.reply_text(
+        "Привіт! Я ваш бот. Ось список доступних команд:\n/help - Доступні команди\n"
+    )
 
 # Команда /help
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Команди:\n/start - Запуск бота\n/help - Допомога\n/rozklad - Розклад подій")
+    logging.info(f"Отримано команду /help від {update.effective_user.username}")
+    await update.message.reply_text(
+        "Доступні команди:\n/start - Запустити бота\n/help - Доступні команди\n"
+    )
 
-# Команда /rozklad
-async def rozklad(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    events = get_calendar_events()
-    if not events:
-        await update.message.reply_text("Немає запланованих подій.")
-    else:
-        message = "📅 *Розклад подій:*\n\n"
-        for event in events:
-            start = event['start'].get('dateTime', event['start'].get('date'))
-            start_time = datetime.datetime.fromisoformat(start).strftime('%d-%m-%Y %H:%M')
-            message += f"• {event['summary']} (📆 {start_time})\n"
-        await update.message.reply_text(message, parse_mode='Markdown')
+# Обробник текстових повідомлень
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info(f"Отримано повідомлення: {update.message.text} від {update.effective_user.username}")
+    await update.message.reply_text(f"Я отримав ваше повідомлення: {update.message.text}")
 
-# Основна функція запуску
+# Основна функція запуску бота
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
+    
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("rozklad", rozklad))
-    print("Бот запущено.")
-    await application.run_polling()
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    
+    print("Бот запущено. Зачекайте команди.")
+    try:
+        await application.run_polling()
+    except KeyboardInterrupt:
+        print("Робота бота була зупинена вручну.")
 
 # Виклик асинхронної функції
-await main()
+if __name__ == "__main__":
+    asyncio.run(main())
