@@ -1,54 +1,125 @@
-import logging
-import nest_asyncio
+# main.py
+
 import asyncio
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import BotCommand, Update
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
+from handlers.start_handler import start
+from handlers.help_handler import help_command
+from handlers.schedule_handler import (
+    schedule_command,
+    set_reminder,
+    unset_reminder,
+    event_details_callback,
+)
+from utils.logger import logger
 
-# Дозволяємо повторний запуск циклу подій у середовищах на зразок Colab
-nest_asyncio.apply()
 
-# Логування
-logging.basicConfig(level=logging.INFO)
+# 🛡️ Логування виконання команд
+async def log_command(command_name: str, success: bool):
+    if success:
+        logger.info(f"✅ Виконано команду: {command_name}")
+    else:
+        logger.warning(f"❌ Помилка під час виконання команди: {command_name}")
 
-# Токен
-TOKEN = "7730295760:AAGuRYKPmnwhJospsWS4dbHW0yy3M6JrZRk"
 
-# Дані вашого календаря
-CALENDAR_ID = "3d1200d4f604504fd92ebc97ccf35ab40d52e1b014a79f9a0b4c61c0ec8dda0c@group.calendar.google.com"
+# 🛡️ Обробник невідомих команд
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.warning("⚠️ Отримана невідома команда")
+    if update.effective_chat.type != "private":
+        await update.message.reply_text(
+            "❗ Ця команда доступна лише в особистих повідомленнях. "
+            "[Напишіть мені в приватний чат](https://t.me/OBERIGHelperBot).",
+            parse_mode="Markdown"
+        )
+    else:
+        await help_command(update, context)
+    logger.info("✅ Обробка невідомої команди завершена")
 
-# Команда /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Отримано команду /start від {update.effective_user.username}")
-    await update.message.reply_text(
-        "Привіт! Я ваш бот. Ось список доступних команд:\n/help - Доступні команди\n"
-    )
 
-# Команда /help
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Отримано команду /help від {update.effective_user.username}")
-    await update.message.reply_text(
-        "Доступні команди:\n/start - Запустити бота\n/help - Доступні команди\n"
-    )
+# 🛡️ Глобальний обробник помилок
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+    logger.error(f"❌ Виникла помилка: {context.error}")
+    if update and hasattr(update, 'message'):
+        await update.message.reply_text(
+            "❌ Виникла внутрішня помилка. Адміністратор уже сповіщений."
+        )
 
-# Обробник текстових повідомлень
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Отримано повідомлення: {update.message.text} від {update.effective_user.username}")
-    await update.message.reply_text(f"Я отримав ваше повідомлення: {update.message.text}")
 
-# Основна функція запуску бота
+# 🛡️ Основна функція запуску
 async def main():
-    application = ApplicationBuilder().token(TOKEN).build()
+    logger.info("🔄 Запуск основного додатка...")
+
+    application = ApplicationBuilder().token("7730295760:AAF7Os85EY6E-ucV7vVJ48JVSovPjF-DyTA").build()
     
+    # Команди для меню бота
+    logger.info("🔧 Встановлення команд меню для бота...")
+    await application.bot.set_my_commands([
+        BotCommand("start", "Вітання та інструкція"),
+        BotCommand("help", "Переглянути список команд"),
+        BotCommand("rozklad", "Переглянути розклад подій"),
+        BotCommand("reminder_on", "Увімкнути нагадування"),
+        BotCommand("reminder_off", "Вимкнути нагадування"),
+    ], scope=None)
+    logger.info("✅ Команди меню встановлено успішно")
+
+    # 🛡️ Додавання обробників команд
+    logger.info("🔧 Додавання обробників команд...")
+
     application.add_handler(CommandHandler("start", start))
+    logger.info("✅ Додано обробник команди: /start")
+
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-    
-    print("Бот запущено. Зачекайте команди.")
+    logger.info("✅ Додано обробник команди: /help")
+
+    application.add_handler(CommandHandler("rozklad", schedule_command))
+    logger.info("✅ Додано обробник команди: /rozklad")
+
+    application.add_handler(CommandHandler("reminder_on", set_reminder))
+    logger.info("✅ Додано обробник команди: /reminder_on")
+
+    application.add_handler(CommandHandler("reminder_off", unset_reminder))
+    logger.info("✅ Додано обробник команди: /reminder_off")
+
+    application.add_handler(CallbackQueryHandler(event_details_callback, pattern="^event_details_.*$"))
+    logger.info("✅ Додано обробник callback-запитів для деталей подій")
+
+    # 🛡️ Обробка невідомих команд
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+    logger.info("✅ Додано обробник невідомих команд")
+
+    # 🛡️ Глобальний обробник помилок
+    application.add_error_handler(error_handler)
+    logger.info("✅ Додано глобальний обробник помилок")
+
+    logger.info("✅ *OBERIG Bot запущено успішно!* 🚀\n🔄 Очікую на команди від користувачів...")
+
     try:
         await application.run_polling()
-    except KeyboardInterrupt:
-        print("Робота бота була зупинена вручну.")
+    except Exception as e:
+        logger.error(f"❌ Критична помилка при запуску бота: {e}")
 
-# Виклик асинхронної функції
+
+# 🛡️ Запуск програми
 if __name__ == "__main__":
-    asyncio.run(main())
+    import nest_asyncio
+
+    try:
+        logger.info("🔄 Ініціалізація asyncio...")
+        nest_asyncio.apply()
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("🛑 Бот зупинено користувачем.")
+    except RuntimeError as e:
+        if "already running" in str(e):
+            logger.warning("⚠️ Event loop is already running.")
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main())
+        else:
+            raise e
