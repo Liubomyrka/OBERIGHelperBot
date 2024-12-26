@@ -2,7 +2,7 @@
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from calendar_utils import get_calendar_events
+from utils.calendar_utils import get_calendar_events
 from datetime import datetime, timezone
 
 # Словник для статусу нагадувань

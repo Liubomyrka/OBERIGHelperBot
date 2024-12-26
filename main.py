@@ -1,5 +1,11 @@
 # main.py
 
+import sys
+import os
+
+# Додайте поточну директорію до Python-шляху
+sys.path.append(os.path.abspath(os.path.dirname(__file__)))
+
 import asyncio
 from telegram import BotCommand, Update
 from telegram.ext import (
