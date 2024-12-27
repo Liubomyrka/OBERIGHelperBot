@@ -3,14 +3,21 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import os
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
-# Шлях до файлу облікових даних
-import os
-CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), os.getenv("GOOGLE_CREDENTIALS"))
+# Отримання шляху до файлу облікових даних з середовища
+CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS")
+CALENDAR_ID = os.getenv("CALENDAR_ID")
+
+# Перевірка правильності шляху до облікових даних
+if not CREDENTIALS_FILE:
+    raise FileNotFoundError("❌ Змінна GOOGLE_CREDENTIALS не задана в середовищі.")
+
+if not os.path.isabs(CREDENTIALS_FILE):
+    CREDENTIALS_FILE = os.path.join(os.getcwd(), CREDENTIALS_FILE)
+
 if not os.path.exists(CREDENTIALS_FILE):
     raise FileNotFoundError(f"❌ Файл облікових даних Google не знайдено за шляхом: {CREDENTIALS_FILE}")
-CALENDAR_ID = os.getenv("CALENDAR_ID")
 
 
 def get_calendar_events():
