@@ -6,7 +6,10 @@ import os
 from datetime import datetime, timezone, timedelta
 
 # Шлях до файлу облікових даних
-CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS")
+import os
+CREDENTIALS_FILE = os.path.join(os.path.dirname(__file__), os.getenv("GOOGLE_CREDENTIALS"))
+if not os.path.exists(CREDENTIALS_FILE):
+    raise FileNotFoundError(f"❌ Файл облікових даних Google не знайдено за шляхом: {CREDENTIALS_FILE}")
 CALENDAR_ID = os.getenv("CALENDAR_ID")
 
 
